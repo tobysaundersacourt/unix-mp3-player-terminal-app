@@ -39,12 +39,15 @@ void shuffle (vector<string> & files, int* pfile_index) {
 }
 
 void listfiles (
-    string dir, 
-    vector<string> & files
+    string* pdir, 
+    vector<string>* pfiles
 ) {
+    *pfiles = {};
+    cout << "Please specify a directory from which to play music.\n" << "\033[1;34mmusic\033[0m" << " >>> ";
+    getline(cin, *pdir);
     DIR *dr;
     struct dirent *en;
-    dr = opendir(dir.c_str());
+    dr = opendir((*pdir).c_str());
     if (dr) {
         while ((en = readdir(dr)) != NULL) {
             string name = en->d_name;
@@ -56,20 +59,21 @@ void listfiles (
                 && name[name.size() - 1] == '3'
             ) 
             {
-                files.push_back(en->d_name);
+                (*pfiles).push_back(en->d_name);
             }
         }
         closedir(dr);
-    } else {
+    } 
+    else {
         printf(
                 "Could not open directory! "
-                "Please make sure it exists and you have spelled it correctly.\n"
+                "Please make sure it exists and enter it again.\n"
         );
-        exit(0);
+        listfiles(pdir, pfiles);
     }
-    if (files.size() == 0) {
-        printf("The directory specified has no mp3 files! Please note this player scans for mp3 files.\n");
-        exit(0);
+    if ((*pfiles).size() == 0) {
+        printf("The directory specified has no mp3 files! Please enter a directory with mp3 files.\n");
+        listfiles(pdir, pfiles);
     }
 }
 
@@ -149,8 +153,7 @@ void listen (
             cout << (*pfiles)[*pfile_index] << std::endl;
         }
         else if (command == "mvdir") {
-            cout << "Please specify a directory from which to play music.\n" << "\033[1;34mmusic\033[0m" << " >>> ";
-            getline(cin, *pdir);
+            listfiles(pdir, pfiles);
         }
         else if (command == "pause") {
             if (!(*ppause)) {
@@ -186,16 +189,12 @@ void listen (
 }
 
 int main() {
-    cout << "Please specify a directory from which to play music.\n" << "\033[1;34mmusic\033[0m" << " >>> ";
-    string dir;
-    getline(cin, dir);
     srand(time(NULL));
-    vector<string> files = {};
-    listfiles(dir, files);
-    string tmpdir = "";
+    string dir;
+    vector<string> files;
+    listfiles(&dir, &files);
     int file_index = 0;
     bool pause = false;
-    int file_index_increment = 1;
     bool command_control = false;
     bool terminate = false;
     string index_mode = "next";
@@ -205,7 +204,7 @@ int main() {
             &file_index, 
             &terminate, 
             &index_mode, 
-            &tmpdir, 
+            &dir, 
             &pause, 
             &command_control
     );
@@ -230,12 +229,6 @@ int main() {
             }
             else {
                 command_control = false;
-            }
-            if (tmpdir != "") {
-                files = {};
-                listfiles(tmpdir, files);
-                dir = tmpdir;
-                tmpdir = "";
             }
         }
         else { this_thread::sleep_for(chrono::nanoseconds(100000000)); }
