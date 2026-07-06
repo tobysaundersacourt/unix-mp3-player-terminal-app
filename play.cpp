@@ -16,7 +16,7 @@ int mod (int a, int b) {
     return a;
 }
 
-void play (jthread* plistener, string dir, string file) {
+void play (string dir, string file) {
     system(("ffplay -hide_banner -loglevel quiet -nodisp -autoexit \"" + dir + "/" + file + "\" 1>/dev/null 2>/dev/null").c_str());
 }
 
@@ -68,7 +68,6 @@ void listfiles (string dir, vector<string> & files) {
 }
 
 void listen ( 
-        jthread* pplayer, 
         vector<string>* pfiles, 
         int* pfile_index, 
         bool* pterminate, 
@@ -81,7 +80,6 @@ void listen (
         getline(cin, command);
         if (command == "stop") {
             system("pkill ffplay");
-            (*pplayer).request_stop();
             *pterminate = true;
             return;
         }
@@ -91,16 +89,13 @@ void listen (
         }
         else if (command == "next") {
             system("pkill ffplay");
-            (*pplayer).request_stop();
         }
         else if (command == "previous") {
             system("pkill ffplay");
-            (*pplayer).request_stop();
             (*pfile_index) -= 2;
         }
         else if (command == "random") {
             system("pkill ffplay");
-            (*pplayer).request_stop();
             *pfile_index = rand() % (*pfiles).size();
         }
         else if (command == "shuffle") {
@@ -174,12 +169,10 @@ int main() {
     int file_index_increment = 1;
     bool terminate = false;
     string index_mode = "next";
-    jthread* pplayer = new jthread();
-    jthread* plistener = new jthread();
-    *plistener = jthread ( listen, pplayer, &files, &file_index, &terminate, &index_mode, &tmpdir );
+    thread listener ( listen, &files, &file_index, &terminate, &index_mode, &tmpdir );
     while (!terminate) {
-        *pplayer = jthread ( play, plistener, dir, files[mod (file_index, files.size())] );
-        (*pplayer).join();
+        thread player ( play, dir, files[mod (file_index, files.size())] );
+        player.join();
         if (index_mode == "next") {
             file_index++;
         }
@@ -200,4 +193,5 @@ int main() {
             tmpdir = "";
         }
     }
+    listener.join();
 }
