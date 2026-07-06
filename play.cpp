@@ -72,12 +72,18 @@ void listen (
         int* pfile_index, 
         bool* pterminate, 
         string* pindex_mode, 
-        string* pdir 
+        string* pdir,
+        bool* ppause
 ) {
     string command;
     while (true) {
         cout << "\033[1;34mmusic\033[0m" << " >>> "; 
         getline(cin, command);
+        if (*ppause && command != "pause") {
+            cerr << "The mp3 player is paused! Please unpause it with the 'pause' command "
+                 << "before sending any other commands.\n";
+            command = "null";
+        }
         if (command == "stop") {
             system("pkill ffplay");
             *pterminate = true;
@@ -122,6 +128,7 @@ void listen (
                     printf("The next track will play once this one has concluded.\n");
                }
         }
+        else if (command == "null") {}
         else if (command == "tracks") {
             for (int i = 0; i < (*pfiles).size(); i++) {
                 if (i == *pfile_index) {
@@ -139,6 +146,18 @@ void listen (
             cout << "Please specify a directory from which to play music.\n" << "\033[1;34mmusic\033[0m" << " >>> ";
             getline(cin, *pdir);
         }
+        else if (command == "pause") {
+            if (!(*ppause)) {
+                cout << "Pausing player. Run the same command to unpause.\n";
+                *ppause = true;
+                system("pkill ffplay");
+            }
+            else {
+                cout << "Unpausing player.\n";
+                *ppause = false;
+                (*pfile_index)--;
+            }
+        }
         else {
             printf(
                     "Unrecognized command input! Here is a list of valid commands:\n\t"
@@ -152,7 +171,9 @@ void listen (
                         "loop -- the program will play tracks over and over again\n\t"
                         "tracks -- prints the current track list with the current track highlighted\n\t"
                         "playing -- prints the currently playing track\n\t"
-                        "mvdir -- changes the directory from which the tracks are played\n"
+                        "mvdir -- changes the directory from which the tracks are played\n\t"
+                        "pause -- pause or unpause the player without retaining the location in the track\n\t"
+                        "null -- this command doesn't do anything\n"
             ); 
         }
     }
@@ -167,10 +188,11 @@ int main() {
     listfiles(dir, files);
     string tmpdir = "";
     int file_index = 0;
+    bool pause = false;
     int file_index_increment = 1;
     bool terminate = false;
     string index_mode = "next";
-    thread listener ( listen, &files, &file_index, &terminate, &index_mode, &tmpdir );
+    thread listener ( listen, &files, &file_index, &terminate, &index_mode, &tmpdir, &pause );
     while (!terminate) {
         thread player ( play, dir, files[mod (file_index, files.size())] );
         player.join();
@@ -192,6 +214,9 @@ int main() {
             listfiles(tmpdir, files);
             dir = tmpdir;
             tmpdir = "";
+        }
+        while (pause) {
+            this_thread::sleep_for(chrono::nanoseconds(100000000));
         }
     }
     listener.join();
