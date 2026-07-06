@@ -16,7 +16,10 @@ int mod (int a, int b) {
     return a;
 }
 
-void play (string dir, string file) {
+void play (
+    string dir, 
+    string file
+) {
     system(("ffplay -hide_banner -loglevel quiet -nodisp -autoexit \"" + dir + "/" + file + "\" 1>/dev/null 2>/dev/null").c_str());
 }
 
@@ -35,7 +38,10 @@ void shuffle (vector<string> & files, int* pfile_index) {
     }
 }
 
-void listfiles (string dir, vector<string> & files) {
+void listfiles (
+    string dir, 
+    vector<string> & files
+) {
     DIR *dr;
     struct dirent *en;
     dr = opendir(dir.c_str());
@@ -68,22 +74,18 @@ void listfiles (string dir, vector<string> & files) {
 }
 
 void listen ( 
-        vector<string>* pfiles, 
-        int* pfile_index, 
-        bool* pterminate, 
-        string* pindex_mode, 
-        string* pdir,
-        bool* ppause
+    vector<string>* pfiles, 
+    int* pfile_index, 
+    bool* pterminate, 
+    string* pindex_mode, 
+    string* pdir,
+    bool* ppause,
+    bool* command_control
 ) {
     string command;
     while (true) {
         cout << "\033[1;34mmusic\033[0m" << " >>> "; 
         getline(cin, command);
-        if (*ppause && command != "pause") {
-            cerr << "The mp3 player is paused! Please unpause it with the 'pause' command "
-                 << "before sending any other commands.\n";
-            command = "null";
-        }
         if (command == "stop") {
             system("pkill ffplay");
             *pterminate = true;
@@ -95,14 +97,18 @@ void listen (
         }
         else if (command == "next") {
             system("pkill ffplay");
+            (*pfile_index)++;
+            *command_control = true;
         }
         else if (command == "previous") {
             system("pkill ffplay");
-            (*pfile_index) -= 2;
+            (*pfile_index)--;
+            *command_control = true;
         }
         else if (command == "random") {
             system("pkill ffplay");
             *pfile_index = rand() % (*pfiles).size();
+            *command_control = true;
         }
         else if (command == "shuffle") {
            shuffle ( *pfiles, pfile_index );
@@ -151,11 +157,11 @@ void listen (
                 cout << "Pausing player. Run the same command to unpause.\n";
                 *ppause = true;
                 system("pkill ffplay");
+                *command_control = true;
             }
             else {
                 cout << "Unpausing player.\n";
                 *ppause = false;
-                (*pfile_index)--;
             }
         }
         else {
@@ -190,34 +196,49 @@ int main() {
     int file_index = 0;
     bool pause = false;
     int file_index_increment = 1;
+    bool command_control = false;
     bool terminate = false;
     string index_mode = "next";
-    thread listener ( listen, &files, &file_index, &terminate, &index_mode, &tmpdir, &pause );
+    thread listener (
+            listen, 
+            &files, 
+            &file_index, 
+            &terminate, 
+            &index_mode, 
+            &tmpdir, 
+            &pause, 
+            &command_control
+    );
     while (!terminate) {
-        thread player ( play, dir, files[mod (file_index, files.size())] );
-        player.join();
-        if (index_mode == "next") {
-            file_index++;
+        if (!pause) {
+            thread player ( play, dir, files[mod (file_index, files.size())] );
+            player.join();
+            if (!command_control) {
+                if (index_mode == "next") {
+                    file_index++;
+                }
+                else if (index_mode == "once") {
+                    index_mode = "next";
+                }
+                else if (index_mode == "loop") {
+                    // pass
+                }
+                else {
+                    cerr << "INTERNAL ERROR: INVALID INDEX MODE\n";
+                    exit(0);
+                }
+            }
+            else {
+                command_control = false;
+            }
+            if (tmpdir != "") {
+                files = {};
+                listfiles(tmpdir, files);
+                dir = tmpdir;
+                tmpdir = "";
+            }
         }
-        else if (index_mode == "once") {
-            index_mode = "next";
-        }
-        else if (index_mode == "loop") {
-            // pass
-        }
-        else {
-            cerr << "INTERNAL ERROR: INVALID INDEX MODE\n";
-            exit(0);
-        }
-        if (tmpdir != "") {
-            files = {};
-            listfiles(tmpdir, files);
-            dir = tmpdir;
-            tmpdir = "";
-        }
-        while (pause) {
-            this_thread::sleep_for(chrono::nanoseconds(100000000));
-        }
+        else { this_thread::sleep_for(chrono::nanoseconds(100000000)); }
     }
     listener.join();
 }
