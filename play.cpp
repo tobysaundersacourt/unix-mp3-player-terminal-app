@@ -151,7 +151,8 @@ void listen (
                         "once -- the program will play the currently playing mp4 file once again after it has concluded\n\t"
                         "loop -- the program will play tracks over and over again\n\t"
                         "tracks -- prints the current track list with the current track highlighted\n\t"
-                        "playing -- prints the currently playing track\n"
+                        "playing -- prints the currently playing track\n\t"
+                        "mvdir -- changes the directory from which the tracks are played\n"
             ); 
         }
     }
